@@ -23,13 +23,13 @@ const findTableByOneTextValue = async ({palabra, database, strictSearch = true }
     const columns = await pool
       .request()
       .query(
-        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableNames[i]}' and (DATA_TYPE like '%char%' or DATA_TYPE like '%text%')`
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableNames[i]}' and DATA_TYPE != 'image'`// and (DATA_TYPE like '%char%' or DATA_TYPE like '%text%')`
       );
     const columnNames = new Set(columns.recordset.map((r) => r.COLUMN_NAME));
     if (columnNames.size === 0) continue;
     const likeExpression = strictSearch ? `like '${palabra}'` : `like '%${palabra}%'`;
     const whereOr = [...columnNames]
-      .map((c) => `"${c}" ${likeExpression}`)
+      .map((c) => `cast("${c}" as varchar) ${likeExpression}`)
       .join(' OR ');
     const query = `SELECT 1 FROM ${tableNames[i]} WHERE ${whereOr}`;
     const result = await pool.request().query(query);
@@ -55,7 +55,7 @@ const findTableByOneTextValue = async ({palabra, database, strictSearch = true }
 
 (async () => {
   const databases = ['BACKOFFICESETUP', 'BACKOFFICE'];
-  const wordFilter = '1371';
+  const wordFilter = '0.00';
   const results = await Promise.all(
     databases.map((database) => findTableByOneTextValue({ palabra: wordFilter, database}))
   );
