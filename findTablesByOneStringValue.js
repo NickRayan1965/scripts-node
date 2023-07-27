@@ -55,7 +55,7 @@ const findTableByOneTextValue = async ({palabra, database, strictSearch = true }
 
 (async () => {
   const databases = ['BACKOFFICESETUP', 'BACKOFFICE'];
-  const wordFilter = 'DASSO';
+  const wordFilter = '0000038766';
   const results = await Promise.all(
     databases.map((database) => findTableByOneTextValue({ palabra: wordFilter, database, strictSearch: false }))
   );

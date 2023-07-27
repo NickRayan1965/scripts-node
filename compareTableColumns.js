@@ -8,7 +8,8 @@ const config = {
   trustServerCertificate: true,
 };
 const mssql = require('mssql');
-const findTableByColumn = async ({
+
+const compaereTableColumns = async ({
   column,
   database,
   strictSearch = true,
@@ -40,11 +41,11 @@ const findTableByColumn = async ({
   const column = 'cdtpingreso';
   const results = await Promise.all(
     databases.map((database) =>
-      findTableByColumn({
+      compaereTableColumns({
         column,
         database,
         strictSearch: true,
-        notLikeExclutions: [],
+        notLikeExclutions: ['Afilia', 'Anoma', 'cajar', 'DiaContom', 'Cierre_M', 'NCredito', 'NDebito',],
       })
     )
   );
