@@ -9,45 +9,63 @@ const config = {
 };
 const mssql = require('mssql');
 
-const compaereTableColumns = async ({
-  column,
-  database,
-  strictSearch = true,
-  notLikeExclutions = [],
+const compareTableColumns = async ({
+  tables = [],
+  databases,
 }) => {
-  const pool = new mssql.ConnectionPool({ ...config, database });
-  await pool.connect();
-  //imprimir todas las tablas
-  const likeExpression = strictSearch
-    ? `like '${column}'`
-    : `like '%${column}%'`;
-  const notLikeExclutionExpresions = notLikeExclutions
-    .map((e) => `and TABLE_NAME not like '%${e}%'`)
-    .join(' ');
-  console.log(notLikeExclutionExpresions);
-  const result = await pool
-    .request()
-    .query(
-      `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dbo' and COLUMN_NAME ${likeExpression} ${
-        notLikeExclutions.length > 0 ? notLikeExclutionExpresions : ''
-      } GROUP BY TABLE_NAME `
-    );
-  const tableNames = result.recordset.map((r) => r.TABLE_NAME);
-  return { [database]: tableNames };
+  const connections = await Promise.all(
+    databases.map((database) => {
+      return new mssql.ConnectionPool({ ...config, database }).connect();
+    })
+  );
+  const results = await Promise.all(
+    connections.map(async (connection, i) => {
+      const columns = await connection.request().query(
+        `SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dbo' and TABLE_NAME in (${tables.map(
+          (t) => `'${t}'`
+        )})`
+      );
+      const tableColumns = columns.recordset.reduce((acc, curr) => {
+        const key = databases[i] + ' / ' + curr.TABLE_NAME;
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(curr.COLUMN_NAME);
+        return acc;
+      }
+      , {});
+      return tableColumns;
+    })
+  );
+  const formatedResults = Object.assign({}, ...results);
+  const columns = Object.values(formatedResults).reduce((acc, curr) => acc.concat(curr), []);
+  const uniqueColumns = [...new Set(columns)]; 
+  const repeatedColumns = [];
+  uniqueColumns.forEach((column) => {
+    if (Object.entries(formatedResults).every(([, value]) => value.includes(column))) {
+      repeatedColumns.push(column);
+    }
+  });
+  const result = Object.entries(formatedResults).reduce((acc, [key, value]) => {
+    acc[key] = value.filter((column) => !repeatedColumns.includes(column));
+    return acc;
+  }, {});
+
+  return { repeatedColumns, ...result };
+  
 };
 
 (async () => {
   const databases = ['BACKOFFICESETUP', 'BACKOFFICE'];
-  const column = 'cdtpingreso';
-  const results = await Promise.all(
-    databases.map((database) =>
-      compaereTableColumns({
-        column,
-        database,
-        strictSearch: true,
-        notLikeExclutions: ['Afilia', 'Anoma', 'cajar', 'DiaContom', 'Cierre_M', 'NCredito', 'NDebito',],
-      })
-    )
-  );
+  const tables = [
+    "Ingreso201810",
+    "Ingreso202210",
+  ];
+  const results = await compareTableColumns({
+    tables,
+    databases,
+  });
   console.log(results);
+  //terminar proceso
+  process.exit();
 })();
